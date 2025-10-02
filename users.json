@@ -1,0 +1,14 @@
+{
+    "admin": {
+        "nome": "Administrador",
+        "email": "admin@admin.com",
+        "telefone": "0000",
+        "senha": "1234"
+    },
+    "01": {
+        "nome": "joao",
+        "email": "a@gmail.com",
+        "telefone": "11111",
+        "senha": "1234"
+    }
+}

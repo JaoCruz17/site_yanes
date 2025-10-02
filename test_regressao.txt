@@ -1,0 +1,1 @@
+Sempre que você alterar o código, roda novamente todos os testes unitários e de sistema para garantir que nada quebrou.
