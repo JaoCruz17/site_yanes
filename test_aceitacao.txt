@@ -1,3 +1,0 @@
-Funcionalidade: Cadastro de Produto
-Cenário:  admin cadastra produto, dado que o admin está logado
-quando ele cadastra um produto com nome "mouse", então o produto deve aparecer no estoque

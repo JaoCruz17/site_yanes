@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel Admin</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// --- CONFIGURE COM SEUS DADOS ---
+const firebaseConfig = {
+  apiKey: "SUA-API-KEY",
+  authDomain: "SEU-PROJETO.firebaseapp.com",
+  projectId: "SEU-PROJETO",
+  storageBucket: "SEU-PROJETO.appspot.com",
+  messagingSenderId: "SEU-ID",
+  appId: "SUA-APP-ID"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const usuariosRef = collection(db, "usuarios");
+
+// ---------------- LOGIN ----------------
+window.loginUsuario = async function() {
+  const email = document.getElementById("loginEmail").value;
+  const senha = document.getElementById("loginSenha").value;
+
+  try {
+    const querySnapshot = await getDocs(usuariosRef);
+    let encontrado = false;
+
+    querySnapshot.forEach(docSnap => {
+      const user = docSnap.data();
+      if(user.email === email && user.senha === senha) {
+        encontrado = true;
+      }
+    });
+
+    if(encontrado) {
+      document.getElementById("loginPage").classList.add("hidden");
+      document.getElementById("adminMenu").classList.remove("hidden");
+      carregarUsuarios();
+    } else {
+      alert("Email ou senha incorretos!");
+    }
+  } catch(error) {
+    console.error("Erro ao verificar login:", error);
+    alert("Erro no login, veja o console.");
+  }
+};
+
+// ---------------- MENU ----------------
+window.mostrarSecao = function(secao) {
+  document.querySelectorAll(".secao").forEach(s => s.classList.add("hidden"));
+  document.getElementById(secao).classList.remove("hidden");
+};
+
+// ---------------- USUÁRIOS ----------------
+document.getElementById("formCadastroUsuario").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const nome = document.getElementById("cadNome").value;
+  const id = document.getElementById("cadID").value;
+  const email = document.getElementById("cadEmail").value;
+  const telefone = document.getElementById("cadTelefone").value;
+  const senha = document.getElementById("cadSenha").value;
+
+  try {
+    await addDoc(usuariosRef, { nome, id, email, telefone, senha });
+    alert("Usuário cadastrado!");
+    e.target.reset();
+    carregarUsuarios();
+  } catch(error) {
+    console.error("Erro ao cadastrar usuário:", error);
+    alert("Erro ao cadastrar usuário");
+  }
+});
+
+async function carregarUsuarios() {
+  const lista = document.getElementById("listaUsuarios");
+  lista.innerHTML = "";
+  try {
+    const querySnapshot = await getDocs(usuariosRef);
+    querySnapshot.forEach(docSnap => {
+      const user = docSnap.data();
+      const tr = document.createElement("tr");
+      tr.classList = "border-b";
+      tr.innerHTML = `
+        <td class="px-4 py-2">${user.nome}</td>
+        <td class="px-4 py-2">${user.id}</td>
+        <td class="px-4 py-2">${user.email}</td>
+        <td class="px-4 py-2">${user.telefone}</td>
+        <td class="px-4 py-2">
+          <button onclick="removerUsuario('${docSnap.id}')" class="bg-red-500 text-white px-3 py-1 rounded">Excluir</button>
+        </td>
+      `;
+      lista.appendChild(tr);
+    });
+  } catch(error) {
+    console.error("Erro ao carregar usuários:", error);
+  }
+}
+
+window.removerUsuario = async function(id) {
+  try {
+    await deleteDoc(doc(db, "usuarios", id));
+    carregarUsuarios();
+  } catch(error) {
+    console.error("Erro ao remover usuário:", error);
+    alert("Erro ao remover usuário");
+  }
+};
+</script>
+</head>
+<body class="bg-gray-100 p-8">
+
+<!-- LOGIN -->
+<div id="loginPage" class="max-w-md mx-auto bg-white p-6 rounded shadow">
+  <h1 class="text-2xl font-bold mb-4 text-center">Login</h1>
+  <input id="loginEmail" type="email" placeholder="E-mail" class="border p-2 rounded w-full mb-2">
+  <input id="loginSenha" type="password" placeholder="Senha" class="border p-2 rounded w-full mb-4">
+  <button onclick="loginUsuario()" class="bg-blue-500 text-white px-4 py-2 rounded w-full">Entrar</button>
+</div>
+
+<!-- MENU ADMIN -->
+<div id="adminMenu" class="hidden max-w-4xl mx-auto">
+  <div class="flex justify-center gap-4 mb-4">
+    <button onclick="mostrarSecao('cadastroUsuario')" class="bg-green-500 text-white px-4 py-2 rounded">Cadastrar Usuário</button>
+    <button onclick="mostrarSecao('remocaoUsuario')" class="bg-red-500 text-white px-4 py-2 rounded">Remover Usuário</button>
+    <button onclick="window.location.href='index.html'" class="bg-blue-500 text-white px-4 py-2 rounded">Gestão de Produtos</button>
+  </div>
+
+  <!-- CADASTRO USUÁRIO -->
+  <div id="cadastroUsuario" class="secao hidden bg-white p-6 rounded shadow mb-6">
+    <h2 class="text-xl font-bold mb-4">Cadastrar Usuário</h2>
+    <form id="formCadastroUsuario" class="grid grid-cols-1 md:grid-cols-5 gap-4">
+      <input id="cadNome" type="text" placeholder="Nome completo" required class="border p-2 rounded w-full">
+      <input id="cadID" type="text" placeholder="ID" required class="border p-2 rounded w-full">
+      <input id="cadEmail" type="email" placeholder="E-mail" required class="border p-2 rounded w-full">
+      <input id="cadTelefone" type="text" placeholder="Telefone" required class="border p-2 rounded w-full">
+      <input id="cadSenha" type="password" placeholder="Senha" required class="border p-2 rounded w-full">
+      <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded col-span-1 md:col-span-1">Salvar</button>
+    </form>
+  </div>
+
+  <!-- REMOÇÃO USUÁRIO -->
+  <div id="remocaoUsuario" class="secao hidden bg-white p-6 rounded shadow mb-6">
+    <h2 class="text-xl font-bold mb-4">Usuários Cadastrados</h2>
+    <table class="w-full border">
+      <thead>
+        <tr class="bg-gray-200">
+          <th class="px-4 py-2">Nome</th>
+          <th class="px-4 py-2">ID</th>
+          <th class="px-4 py-2">E-mail</th>
+          <th class="px-4 py-2">Telefone</th>
+          <th class="px-4 py-2">Ações</th>
+        </tr>
+      </thead>
+      <tbody id="listaUsuarios"></tbody>
+    </table>
+  </div>
+</div>
+
+</body>
+</html>
