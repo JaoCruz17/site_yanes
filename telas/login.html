@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen flex items-center justify-center bg-gray-100">
+  <div class="w-full max-w-md bg-white p-6 rounded shadow">
+    <h1 class="text-2xl font-semibold mb-4 text-center">Entrar</h1>
+
+    <input id="email" type="email" placeholder="Email" class="w-full p-3 border rounded mb-3" />
+    <input id="senha" type="password" placeholder="Senha" class="w-full p-3 border rounded mb-3" />
+    <button id="btnLogin" class="w-full bg-blue-600 text-white p-3 rounded">Entrar</button>
+
+    <p class="text-sm text-gray-500 mt-4">
+      Admin (teste): <strong>admin@admin.com</strong> / <strong>123456</strong>
+    </p>
+  </div>
+
+  <script type="module">
+    import { auth } from "./firebase.js";
+    import { signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    // Credenciais admin hardcoded (bypass Firebase Auth)
+    const ADMIN_EMAIL = "admin@admin.com";
+    const ADMIN_PASS = "123456";
+
+    document.getElementById("btnLogin").addEventListener("click", async () => {
+      const email = document.getElementById("email").value.trim();
+      const senha = document.getElementById("senha").value.trim();
+
+      if (!email || !senha) return alert("Preencha email e senha.");
+
+      // Se for o admin hardcoded: set local session e redireciona
+      if (email === ADMIN_EMAIL && senha === ADMIN_PASS) {
+        localStorage.setItem("isAdminLocal", "true");
+        // opcional: marcar usuário admin no localStorage
+        window.location.href = "admin.html";
+        return;
+      }
+
+      // Senão, tenta login via Firebase Auth
+      try {
+        await signInWithEmailAndPassword(auth, email, senha);
+        // sucesso -> admin.html (ou outra página conforme regras)
+        window.location.href = "admin.html";
+      } catch (err) {
+        alert("Erro ao autenticar: " + err.message);
+      }
+    });
+  </script>
+</body>
+</html>

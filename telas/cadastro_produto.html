@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gerenciar Produtos</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+  <div class="max-w-5xl mx-auto bg-white p-8 rounded-xl shadow">
+    <h1 class="text-2xl font-bold mb-6 text-gray-800">Gerenciamento de Produtos</h1>
+
+    <!-- Formulário -->
+    <form id="formProduto" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <input type="hidden" id="produtoId">
+      <input id="nome" placeholder="Nome do Produto" class="border p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-400" />
+      <input id="codigo" placeholder="Código do Produto" class="border p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-400" />
+      <input id="preco" type="number" placeholder="Preço" class="border p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-400" />
+      <input id="quantidade" type="number" placeholder="Quantidade" class="border p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-400" />
+      <textarea id="descricao" placeholder="Descrição" class="border p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-400 md:col-span-2"></textarea>
+      <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-lg shadow-sm transition md:col-span-2">
+        Salvar Produto
+      </button>
+    </form>
+
+    <!-- Mensagem -->
+    <p id="msg" class="mb-6 text-green-600 font-medium"></p>
+
+    <!-- Tabela -->
+    <table class="w-full border text-sm">
+      <thead class="bg-gray-200">
+        <tr>
+          <th class="px-4 py-2 text-left">Nome</th>
+          <th class="px-4 py-2 text-left">Código</th>
+          <th class="px-4 py-2 text-left">Preço</th>
+          <th class="px-4 py-2 text-left">Quantidade</th>
+          <th class="px-4 py-2 text-left">Descrição</th>
+          <th class="px-4 py-2 text-center">Ações</th>
+        </tr>
+      </thead>
+      <tbody id="listaProdutos"></tbody>
+    </table>
+  </div>
+
+  <script type="module">
+    import { db } from "./firebase.js";
+    import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const produtosRef = collection(db, "produtos");
+
+    // Carregar produtos
+    async function carregarProdutos() {
+      const lista = document.getElementById("listaProdutos");
+      lista.innerHTML = "";
+      const querySnapshot = await getDocs(produtosRef);
+      querySnapshot.forEach(docSnap => {
+        const produto = docSnap.data();
+        const tr = document.createElement("tr");
+        tr.classList = "border-b hover:bg-gray-50 transition";
+        tr.innerHTML = `
+          <td class="px-4 py-2">${produto.nome || "-"}</td>
+          <td class="px-4 py-2">${produto.codigo || "-"}</td>
+          <td class="px-4 py-2">R$ ${produto.preco?.toFixed(2) || "0,00"}</td>
+          <td class="px-4 py-2">${produto.quantidade || 0}</td>
+          <td class="px-4 py-2">${produto.descricao || "-"}</td>
+          <td class="px-4 py-2 text-center flex justify-center gap-2">
+            <button onclick="editarProduto('${docSnap.id}', '${encodeURIComponent(produto.nome)}', '${encodeURIComponent(produto.codigo)}', ${produto.preco}, ${produto.quantidade}, '${encodeURIComponent(produto.descricao)}')" class="bg-yellow-400 hover:bg-yellow-500 text-white text-sm px-3 py-1 rounded">Editar</button>
+            <button onclick="removerProduto('${docSnap.id}')" class="bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-1 rounded">Excluir</button>
+          </td>
+        `;
+        lista.appendChild(tr);
+      });
+    }
+
+    // Editar produto
+    window.editarProduto = function(id, nome, codigo, preco, quantidade, descricao) {
+      document.getElementById("produtoId").value = id;
+      document.getElementById("nome").value = decodeURIComponent(nome);
+      document.getElementById("codigo").value = decodeURIComponent(codigo);
+      document.getElementById("preco").value = preco;
+      document.getElementById("quantidade").value = quantidade;
+      document.getElementById("descricao").value = decodeURIComponent(descricao);
+      document.getElementById("msg").textContent = "✏️ Editando produto...";
+    };
+
+    // Remover produto
+    window.removerProduto = async function(id) {
+      if (!confirm("Deseja realmente excluir este produto?")) return;
+      await deleteDoc(doc(db, "produtos", id));
+      carregarProdutos();
+      document.getElementById("msg").textContent = "🗑️ Produto removido com sucesso!";
+    };
+
+    // Criar ou atualizar produto
+    document.getElementById("formProduto").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const id = document.getElementById("produtoId").value;
+      const nome = document.getElementById("nome").value.trim();
+      const codigo = document.getElementById("codigo").value.trim();
+      const preco = parseFloat(document.getElementById("preco").value);
+      const quantidade = parseInt(document.getElementById("quantidade").value);
+      const descricao = document.getElementById("descricao").value.trim();
+
+      if (!nome || !codigo || isNaN(preco)) return alert("Preencha os campos obrigatórios.");
+
+      try {
+        if (id) {
+          const docRef = doc(db, "produtos", id);
+          await updateDoc(docRef, { nome, codigo, preco, quantidade, descricao });
+          document.getElementById("msg").textContent = "✅ Produto atualizado com sucesso!";
+        } else {
+          await addDoc(produtosRef, { nome, codigo, preco, quantidade, descricao, createdAt: serverTimestamp() });
+          document.getElementById("msg").textContent = "✅ Produto cadastrado com sucesso!";
+        }
+        e.target.reset();
+        document.getElementById("produtoId").value = "";
+        await carregarProdutos();
+      } catch (err) {
+        alert("Erro: " + err.message);
+      }
+    });
+
+    window.onload = carregarProdutos;
+  </script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gerenciar Usuários</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+  <div class="max-w-5xl mx-auto bg-white p-8 rounded-xl shadow">
+    <h1 class="text-2xl font-bold mb-6 text-gray-800">Gerenciamento de Usuários</h1>
+
+    <!-- Formulário -->
+    <form id="formUsuario" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      <input type="hidden" id="usuarioId">
+      <input id="nome" placeholder="Nome completo" class="border p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-400" />
+      <input id="idUsuario" placeholder="ID (CPF ou Matrícula)" class="border p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-400" />
+      <input id="email" type="email" placeholder="E-mail" class="border p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-400" />
+      <input id="telefone" placeholder="Telefone" class="border p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-400" />
+      <input id="senha" type="password" placeholder="Senha (somente para novo cadastro)" class="border p-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-400 md:col-span-2" />
+      <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-lg shadow-sm transition md:col-span-2">
+        Salvar Usuário
+      </button>
+    </form>
+
+    <!-- Mensagem -->
+    <p id="msg" class="mb-6 text-green-600 font-medium"></p>
+
+    <!-- Tabela -->
+    <table class="w-full border text-sm">
+      <thead class="bg-gray-200">
+        <tr>
+          <th class="px-4 py-2 text-left">Nome</th>
+          <th class="px-4 py-2 text-left">E-mail</th>
+          <th class="px-4 py-2 text-left">Telefone</th>
+          <th class="px-4 py-2 text-left">ID</th>
+          <th class="px-4 py-2 text-center">Ações</th>
+        </tr>
+      </thead>
+      <tbody id="listaUsuarios"></tbody>
+    </table>
+
+    <div class="mt-6">
+      <a href="admin.html" class="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition">
+        Voltar
+      </a>
+    </div>
+  </div>
+
+  <script type="module">
+    import { auth, db } from "./firebase.js";
+    import { createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const usuariosRef = collection(db, "usuarios");
+
+    // Proteção simples: redireciona se não estiver logado/admin local
+    (function ensureAuth() {
+      const isAdminLocal = localStorage.getItem("isAdminLocal") === "true";
+      if (isAdminLocal) return;
+      auth.onAuthStateChanged(user => {
+        if (!user) window.location.href = "login.html";
+      });
+    })();
+
+    // Função para carregar usuários na tabela
+    async function carregarUsuarios() {
+      const lista = document.getElementById("listaUsuarios");
+      lista.innerHTML = "";
+      const querySnapshot = await getDocs(usuariosRef);
+      querySnapshot.forEach(docSnap => {
+        const user = docSnap.data();
+        const tr = document.createElement("tr");
+        tr.classList = "border-b hover:bg-gray-50 transition";
+        tr.innerHTML = `
+          <td class="px-4 py-2">${user.nome || "-"}</td>
+          <td class="px-4 py-2">${user.email || "-"}</td>
+          <td class="px-4 py-2">${user.telefone || "-"}</td>
+          <td class="px-4 py-2">${user.idUsuario || "-"}</td>
+          <td class="px-4 py-2 text-center flex justify-center gap-2">
+            <button onclick="editarUsuario('${docSnap.id}', '${encodeURIComponent(user.nome)}', '${encodeURIComponent(user.idUsuario)}', '${encodeURIComponent(user.email)}', '${encodeURIComponent(user.telefone)}')" class="bg-yellow-400 hover:bg-yellow-500 text-white text-sm px-3 py-1 rounded">Editar</button>
+            <button onclick="removerUsuario('${docSnap.id}')" class="bg-red-500 hover:bg-red-600 text-white text-sm px-3 py-1 rounded">Excluir</button>
+          </td>
+        `;
+        lista.appendChild(tr);
+      });
+    }
+
+    // Editar usuário
+    window.editarUsuario = function(id, nome, idUsuario, email, telefone) {
+      document.getElementById("usuarioId").value = id;
+      document.getElementById("nome").value = decodeURIComponent(nome);
+      document.getElementById("idUsuario").value = decodeURIComponent(idUsuario);
+      document.getElementById("email").value = decodeURIComponent(email);
+      document.getElementById("telefone").value = decodeURIComponent(telefone);
+      document.getElementById("senha").value = "";
+      document.getElementById("msg").textContent = "✏️ Editando usuário...";
+    };
+
+    // Remover usuário
+    window.removerUsuario = async function(id) {
+      if (!confirm("Deseja realmente excluir este usuário?")) return;
+      await deleteDoc(doc(db, "usuarios", id));
+      carregarUsuarios();
+      document.getElementById("msg").textContent = "🗑️ Usuário removido com sucesso!";
+    };
+
+    // Criar ou atualizar usuário
+    document.getElementById("formUsuario").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const id = document.getElementById("usuarioId").value;
+      const nome = document.getElementById("nome").value.trim();
+      const idUsuario = document.getElementById("idUsuario").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const telefone = document.getElementById("telefone").value.trim();
+      const senha = document.getElementById("senha").value;
+
+      if (!nome || !idUsuario || !email) return alert("Preencha todos os campos obrigatórios.");
+
+      try {
+        if (id) {
+          // Atualizar usuário existente
+          const docRef = doc(db, "usuarios", id);
+          await updateDoc(docRef, { nome, idUsuario, email, telefone });
+          document.getElementById("msg").textContent = "✅ Usuário atualizado com sucesso!";
+        } else {
+          // Criar novo usuário
+          if (!senha) return alert("Informe uma senha para o novo usuário.");
+          const cred = await createUserWithEmailAndPassword(auth, email, senha);
+          const uid = cred.user.uid;
+          await addDoc(usuariosRef, { uid, nome, idUsuario, email, telefone, createdAt: serverTimestamp() });
+          document.getElementById("msg").textContent = "✅ Usuário cadastrado com sucesso!";
+        }
+
+        // Limpar campos e recarregar tabela
+        e.target.reset();
+        document.getElementById("usuarioId").value = "";
+        await carregarUsuarios();
+      } catch (err) {
+        alert("Erro: " + err.message);
+      }
+    });
+
+    // Carregar lista ao abrir
+    window.onload = carregarUsuarios;
+  </script>
+</body>
+</html>

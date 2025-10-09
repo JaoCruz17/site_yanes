@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Painel Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 flex flex-col">
+  <!-- Header -->
+  <header class="flex justify-between items-center bg-white shadow-md rounded-xl px-6 py-4 mb-8 mt-4 max-w-5xl mx-auto w-full">
+    <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m2 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      Painel do Administrador
+    </h1>
+    <button id="logoutBtn" class="px-4 py-2 bg-red-500 hover:bg-red-600 transition text-white font-semibold rounded-lg shadow-sm">
+      Sair
+    </button>
+  </header>
+
+  <!-- Main -->
+  <main class="flex-grow max-w-5xl mx-auto w-full">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <a href="cadastro_usuario.html" class="group block p-6 bg-blue-600 text-white rounded-2xl text-center font-semibold shadow-md hover:bg-blue-700 hover:scale-105 transition transform duration-200">
+        <div class="text-xl mb-1">Cadastrar Usuário</div>
+        <p class="text-sm text-blue-100 opacity-80 group-hover:opacity-100">Gerencie novos acessos</p>
+      </a>
+
+      <a href="cadastro_produto.html" class="group block p-6 bg-green-600 text-white rounded-2xl text-center font-semibold shadow-md hover:bg-green-700 hover:scale-105 transition transform duration-200">
+        <div class="text-xl mb-1">Cadastrar Produto</div>
+        <p class="text-sm text-green-100 opacity-80 group-hover:opacity-100">Adicione novos itens</p>
+      </a>
+
+      <a href="compra_venda.html" class="group block p-6 bg-indigo-600 text-white rounded-2xl text-center font-semibold shadow-md hover:bg-indigo-700 hover:scale-105 transition transform duration-200">
+        <div class="text-xl mb-1">Compra & Venda</div>
+        <p class="text-sm text-indigo-100 opacity-80 group-hover:opacity-100">Controle de transações</p>
+      </a>
+    </div>
+  </main>
+
+  <!-- Script -->
+  <script type="module">
+    import { auth } from "./firebase.js";
+    import { signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    async function ensureAuth() {
+      const isAdminLocal = localStorage.getItem("isAdminLocal") === "true";
+      if (isAdminLocal) return;
+      if (auth.currentUser) return;
+      auth.onAuthStateChanged(user => {
+        if (!user && !isAdminLocal) {
+          window.location.href = "login.html";
+        }
+      });
+    }
+
+    ensureAuth();
+
+    document.getElementById("logoutBtn").addEventListener("click", async () => {
+      localStorage.removeItem("isAdminLocal");
+      try { await signOut(auth); } catch(e) {}
+      window.location.href = "login.html";
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Compra & Venda</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gray-50 p-6">
+  <div class="max-w-2xl mx-auto bg-white p-6 rounded shadow mb-8">
+    <h2 class="text-xl font-semibold mb-4">Registrar Compra / Venda</h2>
+
+    <!-- Formulário -->
+    <label class="block text-sm mb-2">Produto</label>
+    <input list="produtosList" id="produtoInput" class="w-full p-3 border rounded mb-3" placeholder="Digite ou selecione o produto" />
+    <datalist id="produtosList"></datalist>
+
+    <label class="block text-sm mb-2">Tipo</label>
+    <select id="tipo" class="w-full p-3 border rounded mb-3">
+      <option value="venda">Venda</option>
+      <option value="compra">Compra</option>
+    </select>
+
+    <input id="quantidade" type="number" placeholder="Quantidade" class="w-full p-3 border rounded mb-3" />
+    <input id="valorTotal" type="number" placeholder="Valor total (opcional)" class="w-full p-3 border rounded mb-3" />
+
+    <div class="flex gap-2 mb-3">
+      <button id="registrar" class="bg-emerald-600 text-white px-4 py-2 rounded">Registrar</button>
+      <a href="admin.html" class="px-4 py-2 border rounded">Voltar</a>
+    </div>
+
+    <p id="msg" class="mt-3 text-sm text-green-600"></p>
+  </div>
+
+  <!-- Tabela de transações -->
+  <div class="max-w-4xl mx-auto bg-white p-6 rounded shadow">
+    <h3 class="text-lg font-semibold mb-4">Transações Registradas</h3>
+    <table class="w-full border text-sm">
+      <thead class="bg-gray-200">
+        <tr>
+          <th class="px-4 py-2 text-left">Produto</th>
+          <th class="px-4 py-2 text-left">Tipo</th>
+          <th class="px-4 py-2 text-left">Quantidade</th>
+          <th class="px-4 py-2 text-left">Total</th>
+          <th class="px-4 py-2 text-left">Data</th>
+        </tr>
+      </thead>
+      <tbody id="listaTransacoes"></tbody>
+    </table>
+  </div>
+
+  <script type="module">
+    import { db, auth } from "./firebase.js";
+    import { collection, getDocs, doc, runTransaction, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    (function ensureAuth(){
+      const isAdminLocal = localStorage.getItem("isAdminLocal") === "true";
+      if (isAdminLocal) return;
+      auth.onAuthStateChanged(user => {
+        if (!user) window.location.href = "login.html";
+      });
+    })();
+
+    const produtosRef = collection(db, "produtos");
+    const transacoesRef = collection(db, "transacoes");
+
+    async function carregarProdutos() {
+      const dataList = document.getElementById("produtosList");
+      dataList.innerHTML = "";
+      const snap = await getDocs(produtosRef);
+      snap.forEach(d => {
+        const p = d.data();
+        const option = document.createElement("option");
+        option.value = p.nome;
+        dataList.appendChild(option);
+      });
+    }
+
+    async function carregarTransacoes() {
+      const tbody = document.getElementById("listaTransacoes");
+      tbody.innerHTML = "";
+      const snap = await getDocs(transacoesRef);
+      snap.forEach(d => {
+        const t = d.data();
+        const tr = document.createElement("tr");
+        const data = t.createdAt?.toDate?.() ? t.createdAt.toDate().toLocaleString() : "-";
+        tr.classList = "border-b hover:bg-gray-50 transition";
+        tr.innerHTML = `
+          <td class="px-4 py-2">${t.produtoId || "-"}</td>
+          <td class="px-4 py-2 capitalize">${t.tipo}</td>
+          <td class="px-4 py-2">${t.quantidade}</td>
+          <td class="px-4 py-2">R$ ${t.total?.toFixed(2) || "0,00"}</td>
+          <td class="px-4 py-2">${data}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById("registrar").addEventListener("click", async () => {
+      const prodNome = document.getElementById("produtoInput").value.trim();
+      const tipo = document.getElementById("tipo").value;
+      const qtd = parseInt(document.getElementById("quantidade").value);
+      const total = parseFloat(document.getElementById("valorTotal").value) || 0;
+
+      if (!prodNome || !qtd || qtd <= 0) return alert("Informe um produto e quantidade válida.");
+
+      const snap = await getDocs(produtosRef);
+      let prodDoc = null;
+      snap.forEach(d => { if (d.data().nome.toLowerCase() === prodNome.toLowerCase()) prodDoc = d; });
+
+      let prodId;
+      if (prodDoc) {
+        prodId = prodDoc.id;
+      } else {
+        const novoProdRef = doc(produtosRef);
+        await novoProdRef.set({ nome: prodNome, estoque: 0 });
+        prodId = novoProdRef.id;
+      }
+
+      const prodRef = doc(db, "produtos", prodId);
+
+      try {
+        await runTransaction(db, async (t) => {
+          const docSnap = await t.get(prodRef);
+          if (!docSnap.exists()) throw new Error("Produto não encontrado");
+          const current = docSnap.data().estoque || 0;
+          let updated = tipo === "venda" ? current - qtd : current + qtd;
+          if (tipo === "venda" && qtd > current) throw new Error("Estoque insuficiente");
+
+          t.update(prodRef, { estoque: updated });
+          t.set(doc(transacoesRef), {
+            produtoId: prodNome,
+            tipo,
+            quantidade: qtd,
+            total,
+            createdAt: serverTimestamp()
+          });
+        });
+
+        document.getElementById("msg").textContent = "✅ Transação registrada com sucesso.";
+        document.getElementById("produtoInput").value = "";
+        document.getElementById("quantidade").value = "";
+        document.getElementById("valorTotal").value = "";
+        carregarProdutos();
+        carregarTransacoes();
+      } catch (err) {
+        alert("Erro: " + err.message);
+      }
+    });
+
+    // Inicialização
+    carregarProdutos();
+    carregarTransacoes();
+  </script>
+</body>
+</html>
