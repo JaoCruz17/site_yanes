@@ -1,0 +1,13 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
+
+9- Teste Unitário/Integração 10 - Teste de Sistema 11 - Teste de Aceitação 12 - Teste Alfa e Beta 13 - Teste de Regressão 14 - Automação do tipo macro (Selenium/Python)
+pytest tests/ -v
+pip install selenium webdriver-manager
+pip install selenium
